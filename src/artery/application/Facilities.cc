@@ -26,13 +26,3 @@ const VehicleDataProvider& Facilities::getVehicleDataProvider() const
 {
 	return get_const<VehicleDataProvider>();
 }
-
-vanetza::dcc::Scheduler& Facilities::getDccScheduler()
-{
-	return get_mutable<vanetza::dcc::Scheduler>();
-}
-
-const vanetza::dcc::StateMachine& Facilities::getDccStateMachine() const
-{
-	return get_const<vanetza::dcc::StateMachine>();
-}
