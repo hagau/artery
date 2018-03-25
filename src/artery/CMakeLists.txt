@@ -16,6 +16,8 @@ add_library(core SHARED
     application/ItsG5Service.cc
     application/LocalDynamicMap.cc
     application/Middleware.cc
+    application/RadioManager.cc
+    application/RadioModule.cc
     application/StationaryMiddleware.cc
     application/StoryboardSignal.cc
     application/Timer.cc
