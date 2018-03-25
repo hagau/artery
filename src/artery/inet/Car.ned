@@ -1,6 +1,8 @@
 package artery.inet;
 
 import artery.application.VehicleMiddleware;
+import artery.application.RadioModule;
+import artery.application.RadioManager;
 import artery.nic.IRadioDriver;
 import inet.node.inet.INetworkNode;
 import inet.linklayer.contract.IWirelessNic;
@@ -15,7 +17,7 @@ module Car extends PlainVehicle like INetworkNode
         @labels(node,ethernet-node,wireless-node);
         @statistic[posX](source="xCoord(mobilityPos(mobilityStateChanged))"; record=vector?);
         @statistic[posY](source="yCoord(mobilityPos(mobilityStateChanged))"; record=vector?);
-        int numRadios = default(1);
+        int numRadios = default(2);
         *.interfaceTableModule = default(absPath(".interfaceTable"));
 
     gates:
@@ -43,8 +45,18 @@ module Car extends PlainVehicle like INetworkNode
         middleware: VehicleMiddleware {
             parameters:
                 @display("p=250,200");
-                radioDriverModule = ".radioDriver[0]";
                 mobilityModule = ".mobility";
+        }
+
+        radioModule[numRadios]: RadioModule {
+            parameters:
+                @display("p=250,250,row,100");
+                radioDriverModule = ".radioDriver[" + string(index) + "]";
+        }
+        
+        radioManager: RadioManager {
+            parameters:
+                @display("p=350,200");
         }
 
     connections:
@@ -53,8 +65,8 @@ module Car extends PlainVehicle like INetworkNode
 
             wlan[i].upperLayerOut --> radioDriver[i].lowerLayerIn;
             wlan[i].upperLayerIn <-- radioDriver[i].lowerLayerOut;
-        }
 
-        middleware.radioDriverOut --> radioDriver[0].middleware$i;
-        middleware.radioDriverIn <-- radioDriver[0].middleware$o;
+            radioModule[i].radioDriverIn <-- radioDriver[i].middleware$o;
+            radioModule[i].radioDriverOut --> radioDriver[i].middleware$i;
+        }
 }
