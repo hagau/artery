@@ -2,6 +2,7 @@
 #include "artery/application/CaService.h"
 #include "artery/application/Asn1PacketVisitor.h"
 #include "artery/application/VehicleDataProvider.h"
+#include "artery/application/RadioManager.h"
 #include "artery/utility/simtime_cast.h"
 #include "veins/base/utils/Coord.h"
 #include <boost/units/cmath.hpp>
@@ -160,7 +161,12 @@ void CaService::sendCam(const SimTime& T_now)
 
 SimTime CaService::genCamDcc()
 {
-	vanetza::Clock::duration delay = getFacilities().getDccScheduler().delay(vanetza::dcc::Profile::DP2);
+    // TODO: implement Service <-> Channel mapping
+    //       send CAMs on CCH for now
+	vanetza::Clock::duration delay = getFacilities().get_const<artery::RadioManager>()
+        .getDccScheduler(vanetza::channel::CCH)
+        .delay(vanetza::dcc::Profile::DP2);
+
 	SimTime dcc { std::chrono::duration_cast<std::chrono::milliseconds>(delay).count(), SIMTIME_MS };
 	return std::min(mGenCamMax, std::max(mGenCamMin, dcc));
 }
