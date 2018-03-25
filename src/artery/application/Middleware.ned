@@ -18,10 +18,10 @@ simple Middleware like IMiddleware
 		@signal[Identity.remove](type=artery::Identity);
 		@signal[StoryboardSignal](type=StoryboardSignal);
 
-		string radioDriverModule;
 		double updateInterval = default(0.1s) @unit(s);
 		string datetime;
 		xml services;
+		int numRadios;
 
 		bool vanetzaEnableSecurity = default(true);
 		string vanetzaCryptoBackend = default("Null");
@@ -29,9 +29,4 @@ simple Middleware like IMiddleware
 		string vanetzaCertificateValidator = default("NullOk");
 		string vanetzaSecuritySignService = default("dummy");
 		string vanetzaSecurityVerifyService = default("dummy");
-		int vanetzaDccQueueLength = default(2);
-
-	gates:
-		input radioDriverIn;
-		output radioDriverOut;
 }

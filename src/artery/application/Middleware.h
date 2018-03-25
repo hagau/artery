@@ -21,6 +21,10 @@
 
 #include "artery/application/Facilities.h"
 #include "artery/application/LocalDynamicMap.h"
+#include "artery/application/McoStrategy.h"
+#include "artery/application/RadioIndicationInterface.h"
+#include "artery/application/RadioManager.h"
+#include "artery/application/RadioModule.h"
 #include "artery/application/Timer.h"
 #include "artery/utility/Identity.h"
 #include <omnetpp/clistener.h>
@@ -31,6 +35,8 @@
 #include <vanetza/btp/data_interface.hpp>
 #include <vanetza/btp/port_dispatcher.hpp>
 #include <vanetza/common/clock.hpp>
+#include <vanetza/common/channel.hpp>
+#include <vanetza/common/its_aid.hpp>
 #include <vanetza/common/stored_position_provider.hpp>
 #include <vanetza/common/runtime.hpp>
 #include <vanetza/dcc/flow_control.hpp>
@@ -50,6 +56,7 @@
 // forward declarations
 class ItsG5BaseService;
 class RadioDriverBase;
+
 namespace traci { class VehicleController; }
 
 namespace artery
@@ -59,18 +66,20 @@ namespace artery
  * Middleware providing a runtime context for services.
  */
 class Middleware :
-    public omnetpp::cSimpleModule, public omnetpp::cListener,
-    public vanetza::access::Interface, public vanetza::btp::RequestInterface
+	public omnetpp::cSimpleModule, public omnetpp::cListener,
+	public vanetza::btp::RequestInterface, public RadioIndicationInterface
 {
 	public:
 		typedef uint16_t port_type;
 
 		Middleware();
-		void request(const vanetza::access::DataRequest&, std::unique_ptr<vanetza::DownPacket>) override;
 		void request(const vanetza::btp::DataRequestB&, std::unique_ptr<vanetza::DownPacket>) override;
 		Facilities& getFacilities() { return mFacilities; }
 		port_type getPortNumber(const ItsG5BaseService*) const;
 		const Identity& getIdentity() const { return mIdentity; }
+
+		// radio input
+		void indicate(vanetza::Channel, omnetpp::cMessage*);
 
 	protected:
 		void initialize(int stage) override;
@@ -78,7 +87,6 @@ class Middleware :
 		void finish() override;
 		void handleMessage(omnetpp::cMessage* msg) override;
 		virtual void handleSelfMsg(omnetpp::cMessage* msg);
-		virtual void handleLowerMsg(omnetpp::cMessage* msg);
 		void receiveSignal(cComponent*, omnetpp::simsignal_t, double, cObject*) override;
 		virtual void initializeIdentity(Identity&);
 		virtual void initializeManagementInformationBase(vanetza::geonet::MIB&);
@@ -93,21 +101,25 @@ class Middleware :
 	private:
 		void updateServices();
 		void initializeMiddleware();
+
+		void initializeRadioModules();
+		void initializeNetworking();
+		void initializeGeoNetworking();
+
 		void initializeServices();
 		void initializeSecurity();
 		void scheduleRuntime();
 		omnetpp::SimTime convertSimTime(vanetza::Clock::time_point tp) const;
 
-		RadioDriverBase* mRadioDriver;
-		omnetpp::cGate* mRadioDriverIn;
-		omnetpp::cGate* mRadioDriverOut;
+		RadioManager* mRadioManager;
+
+		application::McoStrategy* mMcoStrategy;
+
 		Timer mTimer;
 		Identity mIdentity;
 		artery::LocalDynamicMap mLocalDynamicMap;
 		vanetza::Runtime mRuntime;
-		vanetza::dcc::StateMachine mDccFsm;
-		vanetza::dcc::Scheduler mDccScheduler;
-		std::unique_ptr<vanetza::dcc::FlowControl> mDccControl;
+
 		std::unique_ptr<vanetza::security::Backend> mSecurityBackend;
 		std::unique_ptr<vanetza::security::CertificateProvider> mSecurityCertificates;
 		std::unique_ptr<vanetza::security::CertificateValidator> mSecurityCertificateValidator;

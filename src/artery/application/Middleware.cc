@@ -17,6 +17,7 @@
 //
 
 #include "artery/application/Middleware.h"
+#include "artery/application/RadioModule.h"
 #include "artery/application/ItsG5PromiscuousService.h"
 #include "artery/application/ItsG5Service.h"
 #include "artery/messages/GeoNetPacket_m.h"
@@ -45,26 +46,8 @@ namespace artery
 
 Define_Module(Middleware)
 
-Middleware::Middleware() :
-		mRadioDriver(nullptr), mRadioDriverIn(nullptr), mRadioDriverOut(nullptr),
-		mLocalDynamicMap(mTimer), mDccScheduler(mDccFsm, mRuntime.now())
+Middleware::Middleware() : mLocalDynamicMap(mTimer)
 {
-}
-
-void Middleware::request(const vanetza::access::DataRequest& req,
-		std::unique_ptr<vanetza::geonet::DownPacket> payload)
-{
-	Enter_Method_Silent();
-	if ((*payload)[vanetza::OsiLayer::Network].ptr() == nullptr) {
-		throw cRuntimeError("Missing network layer payload in middleware request");
-	}
-
-	GeoNetPacket* net = new GeoNetPacket("GeoNet packet");
-	net->setByteLength(payload->size());
-	net->setPayload(GeoNetPacketWrapper(std::move(payload)));
-	net->setControlInfo(new GeoNetRequest(req));
-
-	send(net, mRadioDriverOut);
 }
 
 void Middleware::request(const vanetza::btp::DataRequestB& req, std::unique_ptr<vanetza::DownPacket> payload)
@@ -81,12 +64,14 @@ void Middleware::request(const vanetza::btp::DataRequestB& req, std::unique_ptr<
 		case geonet::TransportType::SHB: {
 			geonet::ShbDataRequest request(mGeoMib);
 			copy_request_parameters(req, request);
+			request.channel = mMcoStrategy->choose(request);
 			confirm = mGeoRouter->request(request, std::move(payload));
 		}
 			break;
 		case geonet::TransportType::GBC: {
 			geonet::GbcDataRequest request(mGeoMib);
 			copy_request_parameters(req, request);
+			request.channel = mMcoStrategy->choose(request);
 			confirm = mGeoRouter->request(request, std::move(payload));
 		}
 			break;
@@ -128,41 +113,67 @@ void Middleware::initialize(int stage)
 	}
 }
 
-void Middleware::initializeMiddleware()
+void Middleware::initializeRadioModules()
 {
-	mTimer.setTimebase(par("datetime"));
+	auto numRadios = par("numRadios").longValue();
+	auto parent = getParentModule();
+	for (auto i = 0; i < numRadios; i++) {
+		auto radioModule = static_cast<RadioModule*>(getParentModule()->getSubmodule("radioModule", i));
+		radioModule->initialize(&mRuntime, this);
+		mRadioManager->registerRadioModule(radioModule);
+	}
+}
 
-	mRadioDriver = inet::findModuleFromPar<RadioDriverBase>(par("radioDriverModule"), findHost());
-	mRadioDriverIn = gate("radioDriverIn");
-	mRadioDriverOut = gate("radioDriverOut");
-	mRadioDriver->subscribe(RadioDriverBase::ChannelLoadSignal, this);
-
-	mFacilities.register_const(&mDccFsm);
-	mFacilities.register_mutable(&mDccScheduler);
-	mFacilities.register_const(&mTimer);
-	mFacilities.register_mutable(&mLocalDynamicMap);
-
-	mRuntime.reset(mTimer.getCurrentTime());
-	mUpdateInterval = par("updateInterval").doubleValue();
-	mUpdateMessage = new cMessage("middleware update");
-	mUpdateRuntimeMessage = new cMessage("runtime update");
-	initializeSecurity();
-	initializeManagementInformationBase(mGeoMib);
-
+void Middleware::initializeGeoNetworking()
+{
 	using vanetza::geonet::UpperProtocol;
 	vanetza::geonet::Address gn_addr;
 	mGnStationType = vanetza::geonet::StationType::UNKNOWN;
 	gn_addr.is_manually_configured(true);
 	gn_addr.station_type(mGnStationType);
 	gn_addr.country_code(0);
-	gn_addr.mid(mRadioDriver->getMacAddress());
+
+	auto radioModule = mRadioManager->getRadioModule(vanetza::channel::CCH);
+	gn_addr.mid(radioModule->getMacAddress());
+
 	mGeoRouter.reset(new vanetza::geonet::Router {mRuntime, mGeoMib});
 	mGeoRouter->set_address(gn_addr);
-	mDccControl.reset(new vanetza::dcc::FlowControl {mRuntime, mDccScheduler, *this});
-	mDccControl->queue_length(par("vanetzaDccQueueLength"));
-	mGeoRouter->set_access_interface(mDccControl.get());
+
 	mGeoRouter->set_transport_handler(UpperProtocol::BTP_B, &mBtpPortDispatcher);
 	mGeoRouter->set_security_entity(mSecurityEntity.get());
+
+	mGeoRouter->set_access_interfaces(mRadioManager->getInterfaces());
+}
+
+void Middleware::initializeNetworking()
+{
+	mRadioManager = static_cast<RadioManager*>(getParentModule()->getSubmodule("radioManager"));
+	mFacilities.register_const(mRadioManager);
+
+	initializeRadioModules();
+
+	mMcoStrategy = static_cast<application::McoStrategy*>(getParentModule()->getSubmodule("mcoStrategy"));
+
+	initializeGeoNetworking();
+}
+
+void Middleware::initializeMiddleware()
+{
+	mTimer.setTimebase(par("datetime"));
+
+	mFacilities.register_const(&mTimer);
+	mFacilities.register_mutable(&mLocalDynamicMap);
+
+	mRuntime.reset(mTimer.getCurrentTime());
+
+	mUpdateInterval = par("updateInterval").doubleValue();
+	mUpdateMessage = new cMessage("middleware update");
+	mUpdateRuntimeMessage = new cMessage("runtime update");
+	initializeSecurity();
+
+	initializeNetworking();
+
+	initializeManagementInformationBase(mGeoMib);
 
 	initializeIdentity(mIdentity);
 	emit(artery::IdentityRegistry::updateSignal, &mIdentity);
@@ -302,8 +313,7 @@ void Middleware::handleMessage(cMessage *msg)
 	if (msg->isSelfMessage()) {
 		handleSelfMsg(msg);
 	} else {
-		ASSERT(msg->getArrivalGate() == mRadioDriverIn);
-		handleLowerMsg(msg);
+		throw cRuntimeError("Unknown message");
 	}
 }
 
@@ -318,12 +328,14 @@ void Middleware::handleSelfMsg(cMessage *msg)
 	}
 }
 
-void Middleware::handleLowerMsg(cMessage *msg)
+void Middleware::indicate(vanetza::Channel channel, cMessage *msg)
 {
+	Enter_Method_Silent();
+
 	auto* packet = check_and_cast<GeoNetPacket*>(msg);
 	auto& wrapper = packet->getPayload();
 	auto* indication = check_and_cast<GeoNetIndication*>(packet->getControlInfo());
-	mGeoRouter->indicate(wrapper.extract_up_packet(), indication->source, indication->destination);
+	mGeoRouter->indicate(wrapper.extract_up_packet(), indication->source, indication->destination, channel);
 	scheduleRuntime();
 	delete msg;
 }
@@ -341,16 +353,11 @@ void Middleware::update()
 
 void Middleware::receiveSignal(cComponent* component, simsignal_t signal, double value, cObject* details)
 {
-	if (signal == RadioDriverBase::ChannelLoadSignal) {
-		ASSERT(value >= 0.0 && value <= 1.0);
-		unsigned busy_samples = std::round(12500.0 * value);
-		vanetza::dcc::ChannelLoad cl { busy_samples, 12500 };
-		mDccFsm.update(cl);
-	}
 }
 
 void Middleware::scheduleRuntime()
 {
+	Enter_Method_Silent();
 	cancelEvent(mUpdateRuntimeMessage);
 	auto next_time_point = mRuntime.next();
 	while (next_time_point < vanetza::Clock::time_point::max()) {
