@@ -3,6 +3,7 @@ package artery.inet;
 import artery.application.VehicleMiddleware;
 import artery.application.RadioModule;
 import artery.application.RadioManager;
+import artery.application.McoStrategy;
 import artery.nic.IRadioDriver;
 import inet.node.inet.INetworkNode;
 import inet.linklayer.contract.IWirelessNic;
@@ -58,6 +59,12 @@ module Car extends PlainVehicle like INetworkNode
             parameters:
                 @display("p=350,200");
         }
+
+        mcoStrategy: <default("artery.application.McoStaticStrategy")> like McoStrategy {
+            parameters:
+                @display("p=400,200");
+        }
+
 
     connections:
         for i=0..sizeof(radioIn)-1 {
