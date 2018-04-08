@@ -15,6 +15,7 @@ add_library(core SHARED
     application/ItsG5PromiscuousService.cc
     application/ItsG5Service.cc
     application/LocalDynamicMap.cc
+    application/McoStaticStrategy.cc
     application/Middleware.cc
     application/RadioManager.cc
     application/RadioModule.cc
