@@ -1,8 +1,9 @@
 package artery.inet;
 
 import artery.application.VehicleMiddleware;
-import artery.application.RadioModule;
 import artery.application.RadioManager;
+import artery.application.IRadioModule;
+import artery.application.RadioModule;
 import artery.application.McoStrategy;
 import artery.nic.IRadioDriver;
 import inet.node.inet.INetworkNode;
@@ -18,7 +19,7 @@ module Car extends PlainVehicle like INetworkNode
         @labels(node,ethernet-node,wireless-node);
         @statistic[posX](source="xCoord(mobilityPos(mobilityStateChanged))"; record=vector?);
         @statistic[posY](source="yCoord(mobilityPos(mobilityStateChanged))"; record=vector?);
-        int numRadios = default(2);
+        int numRadios = default(1);
         *.interfaceTableModule = default(absPath(".interfaceTable"));
 
     gates:
@@ -47,11 +48,12 @@ module Car extends PlainVehicle like INetworkNode
             parameters:
                 @display("p=250,200");
                 mobilityModule = ".mobility";
+                numRadios = numRadios;
         }
 
-        radioModule[numRadios]: RadioModule {
+        radioModule[numRadios]: <default("artery.application.ItsRadioModule")> like IRadioModule {
             parameters:
-                @display("p=250,250,row,100");
+                @display("p=350,200");
                 radioDriverModule = ".radioDriver[" + string(index) + "]";
         }
         
