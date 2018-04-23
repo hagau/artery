@@ -19,6 +19,7 @@ add_library(core SHARED
     application/Middleware.cc
     application/RadioManager.cc
     application/RadioModule.cc
+    application/ItsRadioModule.cc
     application/StationaryMiddleware.cc
     application/StoryboardSignal.cc
     application/Timer.cc
