@@ -34,16 +34,11 @@ void RadioManager::registerRadioModule(RadioModule* radioModule)
 	Enter_Method_Silent();
 
 	mRadioModules.push_back(radioModule);
-
-	auto channel = radioModule->getChannel();
-	auto macAddress = radioModule->getMacAddress();
-	auto ifc = static_cast<vanetza::dcc::RequestInterface*>(radioModule);
-	mAccessInterfaces.push_back(vanetza::geonet::Router::AccessInterface(channel, macAddress, ifc));
-
-	mChannelMap[channel] = radioModule;
+	mAccessInterfaces.push_back(radioModule);
+	mChannelMap[radioModule->getChannel()] = radioModule;
 }
 
-vanetza::geonet::Router::AccessInterfaceList RadioManager::getInterfaces()
+AccessInterfaceList RadioManager::getInterfaces()
 {
 	return mAccessInterfaces;
 }

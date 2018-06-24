@@ -2,9 +2,9 @@
 #define RADIOMANAGER_H_
 
 #include "artery/application/RadioModule.h"
+#include "artery/utility/Channel.h"
 #include <omnetpp/clistener.h>
 #include <omnetpp/csimplemodule.h>
-#include <vanetza/common/channel.hpp>
 #include <vanetza/common/runtime.hpp>
 #include <vanetza/geonet/router.hpp>
 #include <vanetza/geonet/packet.hpp>
@@ -14,16 +14,19 @@ namespace artery
 {
 
 
+using AccessInterface = std::tuple<Channel, RadioModule*>;
+using AccessInterfaceList = std::vector<RadioModule*>;
+
 class RadioManager : public omnetpp::cSimpleModule
 {
 	public:
 		RadioManager();
 
-		vanetza::geonet::Router::AccessInterfaceList getInterfaces();
+		AccessInterfaceList getInterfaces();
 
 		RadioModule* getRadioModule(vanetza::Channel) const;
 		void registerRadioModule(RadioModule*);
-		vanetza::dcc::Scheduler& getDccScheduler(vanetza::Channel) const;
+		vanetza::dcc::Scheduler& getDccScheduler(Channel) const;
 
 	protected:
 		void initialize();
@@ -37,7 +40,7 @@ class RadioManager : public omnetpp::cSimpleModule
 		std::vector<RadioModule*> mRadioModules;
 		std::map<vanetza::Channel, RadioModule*> mChannelMap;
 
-		vanetza::geonet::Router::AccessInterfaceList mAccessInterfaces;
+		AccessInterfaceList mAccessInterfaces;
 };
 
 
