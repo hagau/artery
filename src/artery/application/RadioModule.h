@@ -3,12 +3,12 @@
 
 #include "artery/application/RadioIndicationInterface.h"
 #include "artery/nic/RadioDriverBase.h"
+#include "artery/utility/Channel.h"
 #include <omnetpp/ccomponent.h>
 #include <omnetpp/clistener.h>
 #include <omnetpp/csimplemodule.h>
 #include <vanetza/access/interface.hpp>
 #include <vanetza/access/data_request.hpp>
-#include <vanetza/common/channel.hpp>
 #include <vanetza/common/runtime.hpp>
 #include <vanetza/dcc/flow_control.hpp>
 #include <vanetza/dcc/scheduler.hpp>
@@ -34,7 +34,7 @@ class RadioModule : public omnetpp::cSimpleModule,
 
 		virtual void initialize(vanetza::Runtime*, RadioIndicationInterface*);
 
-		virtual vanetza::Channel getChannel();
+		virtual Channel getChannel();
 		virtual vanetza::MacAddress getMacAddress();
 
     protected:

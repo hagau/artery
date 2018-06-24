@@ -63,7 +63,7 @@ void RadioModule::indicate(omnetpp::cMessage* msg)
 	mIndicationInterface->indicate(mChannel, msg);
 }
 
-vanetza::Channel RadioModule::getChannel()
+Channel RadioModule::getChannel()
 {
 	return mChannel;
 }
