@@ -1,6 +1,10 @@
 package artery.inet;
 
 import artery.application.StationaryMiddleware;
+import artery.application.RadioManager;
+import artery.application.IRadioModule;
+import artery.application.RadioModule;
+import artery.application.McoStrategy;
 import artery.nic.IRadioDriver;
 import inet.node.inet.INetworkNode;
 import inet.linklayer.contract.IWirelessNic;
@@ -45,9 +49,25 @@ module RSU like INetworkNode
 
         middleware: StationaryMiddleware {
             parameters:
-                radioDriverModule = ".radioDriver[0]";
                 mobilityModule = ".mobility";
                 traciCoreModule = "traci.core";
+                numRadios = numRadios;
+        }
+
+        radioModule[numRadios]: <default("artery.application.ItsRadioModule")> like IRadioModule {
+            parameters:
+                @display("p=350,200");
+                radioDriverModule = ".radioDriver[" + string(index) + "]";
+        }
+
+        radioManager: RadioManager {
+            parameters:
+                @display("p=350,200");
+        }
+
+        mcoStrategy: <default("artery.application.McoStaticStrategy")> like McoStrategy {
+            parameters:
+                @display("p=400,200");
         }
 
     connections:
@@ -56,8 +76,8 @@ module RSU like INetworkNode
 
             wlan[i].upperLayerOut --> radioDriver[i].lowerLayerIn;
             wlan[i].upperLayerIn <-- radioDriver[i].lowerLayerOut;
-        }
 
-        middleware.radioDriverOut --> radioDriver[0].middleware$i;
-        middleware.radioDriverIn <-- radioDriver[0].middleware$o;
+            radioModule[i].radioDriverIn <-- radioDriver[i].middleware$o;
+            radioModule[i].radioDriverOut --> radioDriver[i].middleware$i;
+        }
 }
