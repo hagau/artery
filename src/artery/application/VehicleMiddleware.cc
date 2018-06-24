@@ -111,7 +111,7 @@ void VehicleMiddleware::updatePosition()
 	position_fix.course.assign(north + GeoAngle { mVehicleDataProvider.heading() }, north + 3.0 * degree);
 	position_fix.speed.assign(mVehicleDataProvider.speed(), 1.0 * si::meter_per_second);
 	mPositionProvider.position_fix(position_fix);
-	getRouter().update_position(position_fix);
+	updateGeoRouterPosition(position_fix);
 }
 
 } // namespace artery
