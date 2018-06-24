@@ -64,15 +64,15 @@ void Middleware::request(const vanetza::btp::DataRequestB& req, std::unique_ptr<
 		case geonet::TransportType::SHB: {
 			geonet::ShbDataRequest request(mGeoMib);
 			copy_request_parameters(req, request);
-			request.channel = mMcoStrategy->choose(request);
-			confirm = mGeoRouter->request(request, std::move(payload));
+			auto channel = mMcoStrategy->choose(request);
+			confirm = mGeoRouter.at(channel)->request(request, std::move(payload));
 		}
 			break;
 		case geonet::TransportType::GBC: {
 			geonet::GbcDataRequest request(mGeoMib);
 			copy_request_parameters(req, request);
-			request.channel = mMcoStrategy->choose(request);
-			confirm = mGeoRouter->request(request, std::move(payload));
+			auto channel = mMcoStrategy->choose(request);
+			confirm = mGeoRouter.at(channel)->request(request, std::move(payload));
 		}
 			break;
 		default:
@@ -136,13 +136,20 @@ void Middleware::initializeGeoNetworking()
 	auto radioModule = mRadioManager->getRadioModule(vanetza::channel::CCH);
 	gn_addr.mid(radioModule->getMacAddress());
 
-	mGeoRouter.reset(new vanetza::geonet::Router {mRuntime, mGeoMib});
-	mGeoRouter->set_address(gn_addr);
+	auto access_ifcs = mRadioManager->getInterfaces();
 
-	mGeoRouter->set_transport_handler(UpperProtocol::BTP_B, &mBtpPortDispatcher);
-	mGeoRouter->set_security_entity(mSecurityEntity.get());
+	for (auto ifc : access_ifcs) {
+		GeoRouter geoRouter;
+		geoRouter.reset(new vanetza::geonet::Router {mRuntime, mGeoMib});
+		geoRouter->set_address(gn_addr);
 
-	mGeoRouter->set_access_interfaces(mRadioManager->getInterfaces());
+		geoRouter->set_transport_handler(UpperProtocol::BTP_B, &mBtpPortDispatcher);
+		geoRouter->set_security_entity(mSecurityEntity.get());
+
+		geoRouter->set_access_interface(ifc);
+
+		mGeoRouter.insert({ifc->getChannel(), std::move(geoRouter)});
+	}
 }
 
 void Middleware::initializeNetworking()
@@ -181,7 +188,7 @@ void Middleware::initializeMiddleware()
 
 void Middleware::initializeIdentity(Identity& id)
 {
-	id.geonet = mGeoRouter->get_local_position_vector().gn_addr;
+	id.geonet = mGeoRouter.at(channel::CCH)->get_local_position_vector().gn_addr;
 }
 
 void Middleware::initializeManagementInformationBase(vanetza::geonet::MIB& mib)
@@ -335,7 +342,7 @@ void Middleware::indicate(vanetza::Channel channel, cMessage *msg)
 	auto* packet = check_and_cast<GeoNetPacket*>(msg);
 	auto& wrapper = packet->getPayload();
 	auto* indication = check_and_cast<GeoNetIndication*>(packet->getControlInfo());
-	mGeoRouter->indicate(wrapper.extract_up_packet(), indication->source, indication->destination, channel);
+	mGeoRouter.at(channel)->indicate(wrapper.extract_up_packet(), indication->source, indication->destination);
 	scheduleRuntime();
 	delete msg;
 }
@@ -394,6 +401,13 @@ SimTime Middleware::convertSimTime(vanetza::Clock::time_point tp) const
 	using namespace std::chrono;
 	const auto d = duration_cast<microseconds>(tp - mRuntime.now());
 	return SimTime { simTime().inUnit(SIMTIME_US) + d.count(), SIMTIME_US };
+}
+
+void Middleware::updateGeoRouterPosition(vanetza::PositionFix position)
+{
+	for (auto& entry : mGeoRouter) {
+		entry.second->update_position(position);
+	}
 }
 
 } // namespace artery

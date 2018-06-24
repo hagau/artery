@@ -27,6 +27,7 @@
 #include "artery/application/RadioModule.h"
 #include "artery/application/Timer.h"
 #include "artery/utility/Identity.h"
+#include "artery/utility/Channel.h"
 #include <omnetpp/clistener.h>
 #include <omnetpp/csimplemodule.h>
 #include <omnetpp/simtime.h>
@@ -35,7 +36,6 @@
 #include <vanetza/btp/data_interface.hpp>
 #include <vanetza/btp/port_dispatcher.hpp>
 #include <vanetza/common/clock.hpp>
-#include <vanetza/common/channel.hpp>
 #include <vanetza/common/its_aid.hpp>
 #include <vanetza/common/stored_position_provider.hpp>
 #include <vanetza/common/runtime.hpp>
@@ -93,7 +93,7 @@ class Middleware :
 		virtual void update();
 		omnetpp::cModule* findHost();
 		const vanetza::Runtime& getRuntime() const { return mRuntime; }
-		vanetza::geonet::Router& getRouter() const { ASSERT(mGeoRouter); return *mGeoRouter; }
+		void updateGeoRouterPosition(vanetza::PositionFix position);
 
 		vanetza::StoredPositionProvider mPositionProvider;
 		vanetza::geonet::StationType mGnStationType;
@@ -127,7 +127,10 @@ class Middleware :
 		std::unique_ptr<vanetza::security::SignHeaderPolicy> mSecuritySignHeaderPolicy;
 		std::unique_ptr<vanetza::security::SecurityEntity> mSecurityEntity;
 		vanetza::geonet::MIB mGeoMib;
-		std::unique_ptr<vanetza::geonet::Router> mGeoRouter;
+
+		using GeoRouter = std::unique_ptr<vanetza::geonet::Router>;
+		std::map<vanetza::Channel, GeoRouter> mGeoRouter;
+
 		vanetza::btp::PortDispatcher mBtpPortDispatcher;
 		omnetpp::SimTime mUpdateInterval;
 		omnetpp::cMessage* mUpdateMessage;
