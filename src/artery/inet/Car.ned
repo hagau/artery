@@ -56,7 +56,7 @@ module Car extends PlainVehicle like INetworkNode
                 @display("p=350,200");
                 radioDriverModule = ".radioDriver[" + string(index) + "]";
         }
-        
+
         radioManager: RadioManager {
             parameters:
                 @display("p=350,200");
@@ -66,7 +66,6 @@ module Car extends PlainVehicle like INetworkNode
             parameters:
                 @display("p=400,200");
         }
-
 
     connections:
         for i=0..sizeof(radioIn)-1 {
