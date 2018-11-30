@@ -1,5 +1,8 @@
 find_package(Boost 1.59 COMPONENTS date_time system REQUIRED)
 
+# allow target_link_libraries with targets in other directories
+cmake_policy(SET CMP0079 NEW)
+
 add_library(artery INTERFACE)
 add_library(core SHARED
     application/CaObject.cc
