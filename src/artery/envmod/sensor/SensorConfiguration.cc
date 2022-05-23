@@ -45,6 +45,11 @@ std::vector<Position> createSensorArc(const SensorConfigFov& config, const Posit
         gm::transform(point, point, translate);
     }
 
+    // Fix possible accumulating floating point errors by just copying the
+    // coordinates of the first point into the last point, which completes the polygon
+    points.pop_back();
+    points.push_back(Position(points[0]));
+
     return points;
 }
 
